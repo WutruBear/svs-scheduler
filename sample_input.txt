@@ -1,0 +1,44 @@
+User ID: 1
+Level: FC1
+CONSTRUCTION (Monday): 1
+RESEARCH (Tuesday):  1
+TROOPS (Thursday): 1
+How many FCs and FC shards you have: FC 1 shards 1
+Desired time UTC (minimum 3 hour window): 16.00-19.00
+Desired day(s) (1,.2,.4): Mon, Tue
+
+User ID: 2
+Level: FC2
+CONSTRUCTION (Monday): 2d 2h
+RESEARCH (Tuesday): 2d 2m
+TROOPS (Thursday): 2d 2h
+How many FCs and FC shards you have: FC: 2, FC shards: 2
+Desired time UTC (minimum 3 hour window): 7utc till 21utc
+Desired day(s): 2, 4
+
+User ID: 3
+Level: FC3
+CONSTRUCTION (Monday): 3 days
+RESEARCH (Tuesday): 3 day 1 hour
+TROOPS (Thursday): 3 days
+How many FCs and FC shards you have: 3 FCs, 3 FC shards
+Desired time UTC (minimum 3 hour window): 00, 10, 11, 23
+Desired day(s): Monday, Tuesday
+
+User ID: 4
+Level: FC4
+CONSTRUCTION (Monday): 4d
+RESEARCH (Tuesday): 4d 4h
+TROOPS (Thursday): 4d
+How many FCs and FC shards you have: 4 FC, 4 shards
+Desired time UTC (minimum 3 hour window): 14-17
+Desired day(s): 1, 2, 4
+
+User ID: 5
+Level: FC5
+CONSTRUCTION (Monday): 7200min
+RESEARCH (Tuesday): 5 days, 5 hours
+TROOPS (Thursday): 5
+How many FCs and FC shards you have: 5 Crystals, 5 shards
+Desired time UTC (minimum 3 hour window): 00utc - 4utc, 9utc, 20-23
+Desired day(s): Mon, Thu

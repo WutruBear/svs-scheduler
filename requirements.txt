@@ -1,0 +1,6 @@
+streamlit>=1.35.0
+pandas>=2.0.0
+networkx>=3.0
+openpyxl>=3.1.0
+streamlit-local-storage>=0.0.5
+pytest>=8.0
