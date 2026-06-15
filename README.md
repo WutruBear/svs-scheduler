@@ -11,7 +11,7 @@ exports the result to Excel.
 
 ```bash
 # 1. Clone
-git clone https://github.com/<you>/svs-scheduler.git
+git clone https://github.com/WutruBear/svs-scheduler.git
 cd svs-scheduler
 
 # 2. Install deps
