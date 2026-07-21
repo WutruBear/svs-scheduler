@@ -36,15 +36,6 @@ Level: FC4
 CONSTRUCTION (Monday): 4d
 RESEARCH (Tuesday): 4d 4h
 TROOPS (Thursday): 4d
-How many FCs and FC shards you have: 4 FC, 4 shards
-Desired time UTC (minimum 3 hour window): 14-17
-Desired day(s): 1, 2, 4
-
-User ID: 4
-Level: FC4
-CONSTRUCTION (Monday): 4d
-RESEARCH (Tuesday): 4d 4h
-TROOPS (Thursday): 4d
 How many Fire Crystal: 4
 How many FC shards: 4
 How many Refined FC: 4
