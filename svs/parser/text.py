@@ -10,6 +10,9 @@ from svs.config import MIN_TIME_WINDOW_SLOTS
 from .normalizers import (
     normalize_duration,
     parse_fc_shards,
+    parse_fc_count,
+    parse_shard_count,
+    parse_refined_fc_count,
     normalize_time_utc,
     normalize_days,
 )
@@ -37,6 +40,30 @@ _SPEEDUP_FIELDS: list[tuple[str, list[str]]] = [
     ("Troops",       _TROOPS_PATS),
 ]
 
+
+# Newer paste format asks FCs, FC Shards, and Refined FC as three separate
+# questions (e.g. "How many Fire Crystal:", "How many FC shards:",
+# "How many Refined FC:") rather than one combined line. Each field below is
+# matched independently so the three questions can appear in any order.
+_FC_ONLY_PATS = [
+    r'How\s+many\s+Fire\s+Crystal[s]?[^:?\n]*[:?\-]\s*([^\n]+)',
+    r'(?<!refined\s)Fire\s+Crystal[s]?[^:?\n]*[:?\-]\s*([^\n]+)',
+    r'How\s+many\s+FC[s]?\b(?!\s*shard)[^:?\n]*[:?\-]\s*([^\n]+)',
+]
+_SHARDS_ONLY_PATS = [
+    r'How\s+many\s+FC\s*shards?[^:?\n]*[:?\-]\s*([^\n]+)',
+    r'FC\s*shards?[^:?\n]*[:?\-]\s*([^\n]+)',
+    r'\bShards?[^:?\n]*[:?\-]\s*([^\n]+)',
+]
+_REFINED_FC_PATS = [
+    r'How\s+many\s+Refined\s*FC[s]?[^:?\n]*[:?\-]\s*([^\n]+)',
+    r'Refined\s*FC[s]?[^:?\n]*[:?\-]\s*([^\n]+)',
+    r'Refined\s*Fire\s*Crystal[s]?[^:?\n]*[:?\-]\s*([^\n]+)',
+]
+
+# Legacy format: FCs and shards asked as a single combined line, e.g.
+# "How many FCs and FC shards you have: FC 2693 shards 434". Used as a
+# fallback only when neither of the new split questions are found.
 _FC_PATS = [
     r'(?:How many FCs[^:?\n]*|FC[s]?\s*/\s*[Ss]hard[s]?[^:?\n]*)\s*[:?\-]?\s*([^\n]+)',
     r'FC[s]?\s+and[^:\n]*[:\-]?\s*([^\n]+)',
@@ -88,11 +115,29 @@ def parse_block(block: str) -> dict:
         r[field]            = val
         r[f"_conf_{field}"] = conf
 
-    fc_line          = extract_field(block, _FC_PATS)
-    r["_fc_raw"]     = fc_line
-    fc_v, fc_c, sh_v, sh_c = parse_fc_shards(fc_line)
+    fc_only_line  = extract_field(block, _FC_ONLY_PATS)
+    shards_line   = extract_field(block, _SHARDS_ONLY_PATS)
+    refined_line  = extract_field(block, _REFINED_FC_PATS)
+
+    if fc_only_line or shards_line:
+        # New split-question format.
+        fc_v, fc_c = parse_fc_count(fc_only_line)
+        sh_v, sh_c = parse_shard_count(shards_line)
+        r["_fc_raw"] = " / ".join(x for x in (fc_only_line, shards_line) if x)
+    else:
+        # Legacy combined-line format, e.g. "FC 2693 shards 434".
+        fc_line = extract_field(block, _FC_PATS)
+        fc_v, fc_c, sh_v, sh_c = parse_fc_shards(fc_line)
+        r["_fc_raw"] = fc_line
+
     r["FCs"]           = fc_v;  r["_conf_FCs"]        = fc_c
     r["FC Shards"]     = sh_v;  r["_conf_FC Shards"]  = sh_c
+
+    ref_v, ref_c = parse_refined_fc_count(refined_line)
+    r["Refined FC"]          = ref_v
+    r["_conf_Refined FC"]    = ref_c
+    if refined_line:
+        r["_refined_fc_raw"] = refined_line
 
     tv, tc, slot_count = normalize_time_utc(extract_field(block, _TIME_PATS).strip())
     r["Time UTC"] = tv
