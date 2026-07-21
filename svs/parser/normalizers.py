@@ -227,6 +227,30 @@ def parse_shard_count(raw: str) -> tuple[int | str, str]:
     return "", LOW
 
 
+def parse_refined_fc_count(raw: str) -> tuple[int | str, str]:
+    """
+    Parse a *standalone* Refined FC count string into (value, confidence).
+
+    Accepts: "150", "150 Refined FC", "Refined FC: 150", "Refined FCs 150".
+    """
+    text = clean_str(raw).lower()
+    if not text:
+        return "", LOW
+    for pat in [
+        r'refined\s*fc[s]?\s*[:\-]\s*(\d+(?:[.,]\d+)?)',
+        r'refined\s*fc[s]?\s+(\d+(?:[.,]\d+)?)',
+        r'(\d+(?:[.,]\d+)?)\s*refined\s*fc[s]?',
+        r'^(\d+(?:[.,]\d+)?)$',
+    ]:
+        m = re.search(pat, text, re.I)
+        if m:
+            try:
+                return int(float(_parse_number_str(m.group(1)))), HIGH
+            except ValueError:
+                pass
+    return "", LOW
+
+
 # ── Time UTC ─────────────────────────────────────────────────────────────────
 
 def parse_hhmm(s: str) -> int | None:
