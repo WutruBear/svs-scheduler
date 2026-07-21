@@ -190,8 +190,9 @@ if st.session_state["page"] == "parser":
           <tr><td>Level</td><td>FC tier</td><td><code>FC1</code> … <code>FC5</code></td></tr>
           <tr><td>Construction / Research / Troops</td><td>Speedups in days</td>
               <td><code>4d</code>, <code>3d 12h</code>, <code>7200min</code>, <code>5</code></td></tr>
-          <tr><td>FCs / FC Shards</td><td>Resource counts</td>
-              <td><code>FC 2693 shards 434</code>, <code>2,700 FCs</code></td></tr>
+          <tr><td>FCs / FC Shards / Refined FC</td><td>Resource counts</td>
+              <td><code>How many Fire Crystal: 2693</code> / <code>How many FC shards: 434</code> /
+                  <code>How many Refined FC: 150</code> (or legacy combined <code>FC 2693 shards 434</code>)</td></tr>
           <tr><td>Time UTC</td><td>Available hours (min 3 h window)</td>
               <td><code>14-17</code>, <code>16:00-19:30</code>, <code>00utc - 4utc, 20-23</code></td></tr>
           <tr><td>Days</td><td>Which SvS days the player joins</td>
@@ -280,9 +281,10 @@ if st.session_state["page"] == "parser":
             mapping["Research"]     = pick("Research", "res")
             mapping["Troops"]       = pick("Troops", "troop")
         with c3:
-            mapping["FC Shards"] = pick("FC Shards", "shard")
-            mapping["Time UTC"]  = pick("Time UTC", "time")
-            mapping["Days"]      = pick("Days", "day")
+            mapping["FC Shards"]   = pick("FC Shards", "shard")
+            mapping["Refined FC"]  = pick("Refined FC", "refined")
+            mapping["Time UTC"]    = pick("Time UTC", "time")
+            mapping["Days"]        = pick("Days", "day")
 
         records, parse_warnings, duplicates = parse_dataframe(df_in, mapping)
         input_hash = hash(uploaded_df.getvalue()) + hash(str(mapping))
@@ -406,6 +408,11 @@ if st.session_state["page"] == "parser":
                         f'<div class="fc-raw">FC line: <span>{rec["_fc_raw"]}</span></div>',
                         unsafe_allow_html=True,
                     )
+                if "_refined_fc_raw" in rec and "Refined FC" in flagged:
+                    st.markdown(
+                        f'<div class="fc-raw">Refined FC line: <span>{rec["_refined_fc_raw"]}</span></div>',
+                        unsafe_allow_html=True,
+                    )
 
                 n_cols = min(len(flagged), 3)
                 cols_w = st.columns(n_cols)
@@ -437,9 +444,10 @@ if st.session_state["page"] == "parser":
                 m_troops = st.text_input("Troops",       placeholder="e.g. 5d")
                 m_fcs    = st.text_input("FCs",          placeholder="e.g. 2700")
             with c3:
-                m_shards = st.text_input("FC Shards",    placeholder="e.g. 434")
-                m_time   = st.text_input("Time UTC",     placeholder="e.g. 14:00-17:30")
-                m_days   = st.text_input("Days",         placeholder="e.g. 1, 2")
+                m_shards  = st.text_input("FC Shards",    placeholder="e.g. 434")
+                m_refined = st.text_input("Refined FC",   placeholder="e.g. 150")
+                m_time    = st.text_input("Time UTC",     placeholder="e.g. 14:00-17:30")
+                m_days    = st.text_input("Days",         placeholder="e.g. 1, 2")
             submitted = st.form_submit_button("Add Player", use_container_width=True)
 
         if submitted:
@@ -449,12 +457,13 @@ if st.session_state["page"] == "parser":
             elif uid_str in [r["User ID"] for r in all_records]:
                 st.error(f"User ID {uid_str} already exists.")
             else:
-                from svs.parser.normalizers import parse_fc_count, parse_shard_count
+                from svs.parser.normalizers import parse_fc_count, parse_shard_count, parse_refined_fc_count
                 constr_v, constr_c      = normalize_duration(m_constr)
                 res_v,    res_c         = normalize_duration(m_res)
                 troops_v, troops_c      = normalize_duration(m_troops)
                 fc_v,     fc_c          = parse_fc_count(m_fcs)
                 sh_v,     sh_c          = parse_shard_count(m_shards)
+                ref_v,    ref_c         = parse_refined_fc_count(m_refined)
                 time_v,   time_c, scount = normalize_time_utc(m_time)
                 from svs.config import MIN_TIME_WINDOW_SLOTS
                 if time_v and scount < MIN_TIME_WINDOW_SLOTS:
@@ -469,9 +478,11 @@ if st.session_state["page"] == "parser":
                     "Troops":       troops_v,          "_conf_Troops":       troops_c,
                     "FCs":          fc_v,              "_conf_FCs":          fc_c,
                     "FC Shards":    sh_v,              "_conf_FC Shards":    sh_c,
+                    "Refined FC":   ref_v,             "_conf_Refined FC":   ref_c,
                     "Time UTC":     time_v,            "_conf_Time UTC":     time_c,
                     "Days":         days_v,            "_conf_Days":         days_c,
                     "_fc_raw":      f"{m_fcs} / {m_shards}".strip(" /"),
+                    "_refined_fc_raw": m_refined,
                     "_raw_block":   "(manual entry)",
                     "_manual":      True,
                 }
@@ -548,6 +559,7 @@ if st.session_state["page"] == "parser":
             "Troops":       st.column_config.NumberColumn("Troops",       format="%.2f", width="small"),
             "FCs":          st.column_config.NumberColumn("FCs",          format="%d",   width="small"),
             "FC Shards":    st.column_config.NumberColumn("Shards",       format="%d",   width="small"),
+            "Refined FC":   st.column_config.NumberColumn("Refined FC",   format="%d",   width="small"),
             "Time UTC":     st.column_config.TextColumn("Time (UTC)",     width="large"),
             "Days":         st.column_config.TextColumn("Days",           width="small"),
             "":             st.column_config.TextColumn("",               width="small",
@@ -633,21 +645,21 @@ elif st.session_state["page"] == "scheduler":
 
     # Built-in sample data
     SCHEDULER_SAMPLE = pd.DataFrame([
-        {"User ID": 1,  "Level": "FC1", "Construction": 1.0,  "Research": 1.0,  "Troops": 1.0,  "FCs": 1200, "FC Shards": 210, "Time UTC": "16:00,16:30,17:00,17:30,18:00,18:30", "Days": "1,2"},
-        {"User ID": 2,  "Level": "FC2", "Construction": 2.08, "Research": 2.0,  "Troops": 2.08, "FCs": 2100, "FC Shards": 380, "Time UTC": "07:00,07:30,08:00,08:30,09:00,09:30,10:00,10:30,11:00,11:30,12:00,12:30,13:00,13:30,14:00,14:30,15:00,15:30,16:00,16:30,17:00,17:30,18:00,18:30,19:00,19:30,20:00,20:30", "Days": "2,4"},
-        {"User ID": 3,  "Level": "FC3", "Construction": 3.0,  "Research": 3.04, "Troops": 3.0,  "FCs": 2450, "FC Shards": 290, "Time UTC": "00:00,00:30,10:00,10:30,11:00,11:30,23:00,23:30", "Days": "1,2"},
-        {"User ID": 4,  "Level": "FC4", "Construction": 4.0,  "Research": 4.17, "Troops": 4.0,  "FCs": 2600, "FC Shards": 410, "Time UTC": "14:00,14:30,15:00,15:30,16:00,16:30", "Days": "1,2,4"},
-        {"User ID": 5,  "Level": "FC5", "Construction": 5.0,  "Research": 5.21, "Troops": 5.0,  "FCs": 2693, "FC Shards": 434, "Time UTC": "00:00,00:30,01:00,01:30,02:00,02:30,03:00,03:30,09:00,09:30,20:00,20:30,21:00,21:30,22:00,22:30,23:00,23:30", "Days": "1,4"},
-        {"User ID": 6,  "Level": "FC2", "Construction": 2.5,  "Research": 2.3,  "Troops": 2.1,  "FCs": 1950, "FC Shards": 310, "Time UTC": "16:00,16:30,17:00,17:30", "Days": "1"},
-        {"User ID": 7,  "Level": "FC3", "Construction": 3.3,  "Research": 3.1,  "Troops": 2.8,  "FCs": 2300, "FC Shards": 350, "Time UTC": "16:00,16:30,17:00,17:30", "Days": "1"},
-        {"User ID": 8,  "Level": "FC1", "Construction": 1.1,  "Research": 0.9,  "Troops": 1.0,  "FCs": 900,  "FC Shards": 150, "Time UTC": "16:00,16:30,17:00,17:30", "Days": "1"},
-        {"User ID": 9,  "Level": "FC2", "Construction": 2.0,  "Research": 1.8,  "Troops": 1.9,  "FCs": 1800, "FC Shards": 270, "Time UTC": "16:00,16:30,17:00,17:30", "Days": "1"},
-        {"User ID": 10, "Level": "FC4", "Construction": 4.5,  "Research": 4.2,  "Troops": 4.3,  "FCs": 2550, "FC Shards": 420, "Time UTC": "16:00,16:30,17:00,17:30", "Days": "1"},
-        {"User ID": 11, "Level": "FC3", "Construction": 3.7,  "Research": 3.5,  "Troops": 3.4,  "FCs": 2400, "FC Shards": 390, "Time UTC": "16:00,16:30,17:00,17:30", "Days": "1,2"},
-        {"User ID": 12, "Level": "FC2", "Construction": 2.2,  "Research": 2.4,  "Troops": 2.0,  "FCs": 2050, "FC Shards": 330, "Time UTC": "06:00,06:30,07:00,07:30,08:00,08:30", "Days": "2,4"},
-        {"User ID": 13, "Level": "FC5", "Construction": 5.3,  "Research": 5.1,  "Troops": 5.2,  "FCs": 2700, "FC Shards": 440, "Time UTC": "12:00,12:30,13:00,13:30,14:00,14:30", "Days": "1,2,4"},
-        {"User ID": 14, "Level": "FC1", "Construction": 1.3,  "Research": 1.1,  "Troops": 1.4,  "FCs": 1100, "FC Shards": 190, "Time UTC": "22:00,22:30,23:00,23:30", "Days": "2"},
-        {"User ID": 15, "Level": "FC4", "Construction": 4.1,  "Research": 3.9,  "Troops": 4.0,  "FCs": 2580, "FC Shards": 415, "Time UTC": "16:00,16:30,17:00,17:30", "Days": "1"},
+        {"User ID": 1,  "Level": "FC1", "Construction": 1.0,  "Research": 1.0,  "Troops": 1.0,  "FCs": 1200, "FC Shards": 210, "Refined FC": 52, "Time UTC": "16:00,16:30,17:00,17:30,18:00,18:30", "Days": "1,2"},
+        {"User ID": 2,  "Level": "FC2", "Construction": 2.08, "Research": 2.0,  "Troops": 2.08, "FCs": 2100, "FC Shards": 380, "Refined FC": 95, "Time UTC": "07:00,07:30,08:00,08:30,09:00,09:30,10:00,10:30,11:00,11:30,12:00,12:30,13:00,13:30,14:00,14:30,15:00,15:30,16:00,16:30,17:00,17:30,18:00,18:30,19:00,19:30,20:00,20:30", "Days": "2,4"},
+        {"User ID": 3,  "Level": "FC3", "Construction": 3.0,  "Research": 3.04, "Troops": 3.0,  "FCs": 2450, "FC Shards": 290, "Refined FC": 72, "Time UTC": "00:00,00:30,10:00,10:30,11:00,11:30,23:00,23:30", "Days": "1,2"},
+        {"User ID": 4,  "Level": "FC4", "Construction": 4.0,  "Research": 4.17, "Troops": 4.0,  "FCs": 2600, "FC Shards": 410, "Refined FC": 102, "Time UTC": "14:00,14:30,15:00,15:30,16:00,16:30", "Days": "1,2,4"},
+        {"User ID": 5,  "Level": "FC5", "Construction": 5.0,  "Research": 5.21, "Troops": 5.0,  "FCs": 2693, "FC Shards": 434, "Refined FC": 108, "Time UTC": "00:00,00:30,01:00,01:30,02:00,02:30,03:00,03:30,09:00,09:30,20:00,20:30,21:00,21:30,22:00,22:30,23:00,23:30", "Days": "1,4"},
+        {"User ID": 6,  "Level": "FC2", "Construction": 2.5,  "Research": 2.3,  "Troops": 2.1,  "FCs": 1950, "FC Shards": 310, "Refined FC": 77, "Time UTC": "16:00,16:30,17:00,17:30", "Days": "1"},
+        {"User ID": 7,  "Level": "FC3", "Construction": 3.3,  "Research": 3.1,  "Troops": 2.8,  "FCs": 2300, "FC Shards": 350, "Refined FC": 87, "Time UTC": "16:00,16:30,17:00,17:30", "Days": "1"},
+        {"User ID": 8,  "Level": "FC1", "Construction": 1.1,  "Research": 0.9,  "Troops": 1.0,  "FCs": 900,  "FC Shards": 150, "Refined FC": 37, "Time UTC": "16:00,16:30,17:00,17:30", "Days": "1"},
+        {"User ID": 9,  "Level": "FC2", "Construction": 2.0,  "Research": 1.8,  "Troops": 1.9,  "FCs": 1800, "FC Shards": 270, "Refined FC": 67, "Time UTC": "16:00,16:30,17:00,17:30", "Days": "1"},
+        {"User ID": 10, "Level": "FC4", "Construction": 4.5,  "Research": 4.2,  "Troops": 4.3,  "FCs": 2550, "FC Shards": 420, "Refined FC": 105, "Time UTC": "16:00,16:30,17:00,17:30", "Days": "1"},
+        {"User ID": 11, "Level": "FC3", "Construction": 3.7,  "Research": 3.5,  "Troops": 3.4,  "FCs": 2400, "FC Shards": 390, "Refined FC": 97, "Time UTC": "16:00,16:30,17:00,17:30", "Days": "1,2"},
+        {"User ID": 12, "Level": "FC2", "Construction": 2.2,  "Research": 2.4,  "Troops": 2.0,  "FCs": 2050, "FC Shards": 330, "Refined FC": 82, "Time UTC": "06:00,06:30,07:00,07:30,08:00,08:30", "Days": "2,4"},
+        {"User ID": 13, "Level": "FC5", "Construction": 5.3,  "Research": 5.1,  "Troops": 5.2,  "FCs": 2700, "FC Shards": 440, "Refined FC": 110, "Time UTC": "12:00,12:30,13:00,13:30,14:00,14:30", "Days": "1,2,4"},
+        {"User ID": 14, "Level": "FC1", "Construction": 1.3,  "Research": 1.1,  "Troops": 1.4,  "FCs": 1100, "FC Shards": 190, "Refined FC": 47, "Time UTC": "22:00,22:30,23:00,23:30", "Days": "2"},
+        {"User ID": 15, "Level": "FC4", "Construction": 4.1,  "Research": 3.9,  "Troops": 4.0,  "FCs": 2580, "FC Shards": 415, "Refined FC": 103, "Time UTC": "16:00,16:30,17:00,17:30", "Days": "1"},
     ])
 
     st.markdown('<div class="section-label">Data source</div>', unsafe_allow_html=True)
