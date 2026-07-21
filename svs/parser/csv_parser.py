@@ -24,6 +24,7 @@ from .normalizers import (
     normalize_days,
     parse_fc_count,
     parse_shard_count,
+    parse_refined_fc_count,
     clean_str,
 )
 
@@ -100,6 +101,13 @@ def parse_dataframe(
         rec["FCs"]           = fc_v;  rec["_conf_FCs"]        = fc_c
         rec["FC Shards"]     = sh_v;  rec["_conf_FC Shards"]  = sh_c
         rec["_fc_raw"]       = f"{fc_raw} / {sh_raw}".strip(" /") if (fc_raw or sh_raw) else ""
+
+        # ── Refined FC (independent column) ────────────────────────────────────
+        refined_raw = _get(row, "Refined FC")
+        ref_v, ref_c = parse_refined_fc_count(refined_raw)
+        rec["Refined FC"]        = ref_v;  rec["_conf_Refined FC"] = ref_c
+        if refined_raw:
+            rec["_refined_fc_raw"] = refined_raw
 
         # ── Time UTC ──────────────────────────────────────────────────────────
         time_raw          = _get(row, "Time UTC")
