@@ -763,17 +763,19 @@ elif st.session_state["page"] == "scheduler":
         def pick_col(label: str, default: str) -> str:
             return st.selectbox(label, cols, index=cols.index(default) if default in cols else 0)
 
-        c1, c2, c3 = st.columns(3)
+        c1, c2, c3, c4 = st.columns(4)
         with c1:
-            id_col  = pick_col("User ID column",     "User ID")
-            lvl_col = pick_col("Level column",        "Level")
-            fcs_col = pick_col("FCs column",          "FCs")
+            id_col  = pick_col("User ID column", "User ID")
+            lvl_col = pick_col("Level column",   "Level")
         with c2:
             con_col = pick_col("Construction column", "Construction")
             res_col = pick_col("Research column",     "Research")
             trp_col = pick_col("Troops column",       "Troops")
         with c3:
-            shards_col   = pick_col("FC Shards column",    "FC Shards")
+            fcs_col     = pick_col("FCs column",        "FCs")
+            shards_col  = pick_col("FC Shards column",  "FC Shards")
+            refined_col = pick_col("Refined FC column", "Refined FC")
+        with c4:
             time_default = next((c for c in ("Time", "Hours", "Time UTC") if c in cols), cols[0])
             time_col     = pick_col("Time UTC / Hours column", time_default)
             days_col     = pick_col("Days column", "Days")
@@ -821,6 +823,7 @@ elif st.session_state["page"] == "scheduler":
                     "Troops":       trp_val,
                     "FCs":          _safe_int(row, fcs_col),
                     "FC Shards":    _safe_int(row, shards_col),
+                    "Refined FC":   _safe_int(row, refined_col),
                     "slots":        slots,
                     "days":         parse_ints(clean_str(row[days_col])),
                 })
